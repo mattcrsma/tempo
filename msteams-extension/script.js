@@ -51,8 +51,57 @@ const actionInfo = {
     title: "Back?",
     text: "Send your Back message?",
     icon: "↩"
+  },
+
+  SNACK_SCHED: {
+    title: "Schedule Snack Break?",
+    text: "Schedule your snack break for 10:00–10:30 AM (Singapore time)? This only works if sent before 10:00 AM. Power Automate posts the break and Back messages at those times.",
+    icon: "☕"
+  },
+
+  LUNCH_SCHED: {
+    title: "Schedule Lunch?",
+    text: "Schedule your lunch for 1:00–2:00 PM (Singapore time)? This only works if sent before 1:00 PM. Power Automate posts the lunch and Back messages at those times.",
+    icon: "🍱"
   }
 };
+
+// Snack Break and Lunch switch to these actions in "Scheduled" mode.
+const scheduledVariants = {
+  SNACK: "SNACK_SCHED",
+  LUNCH: "LUNCH_SCHED"
+};
+
+const modeText = {
+  now: {
+    snack: "30 minute break",
+    lunch: "1 hour break"
+  },
+
+  scheduled: {
+    snack: "Scheduled 10:00–10:30 AM",
+    lunch: "Scheduled 1:00–2:00 PM"
+  }
+};
+
+let scheduledMode = false;
+
+function setMode(scheduled) {
+  scheduledMode = scheduled;
+
+  const text = modeText[scheduled ? "scheduled" : "now"];
+
+  $("snackDescription").textContent = text.snack;
+  $("lunchDescription").textContent = text.lunch;
+
+  $("modeNow").classList.toggle("active", !scheduled);
+  $("modeScheduled").classList.toggle("active", scheduled);
+  $("modeNow").setAttribute("aria-pressed", String(!scheduled));
+  $("modeScheduled").setAttribute("aria-pressed", String(scheduled));
+}
+
+$("modeNow").addEventListener("click", () => setMode(false));
+$("modeScheduled").addEventListener("click", () => setMode(true));
 
 function withTimeout(promise, milliseconds = 4000) {
   return new Promise((resolve, reject) => {
@@ -86,6 +135,8 @@ function setBusy(value) {
   }
 
   $("confirmButton").disabled = value;
+  $("modeNow").disabled = value;
+  $("modeScheduled").disabled = value;
 
   // These controls never depend on the worker being ready.
   $("settingsButton").disabled = false;
@@ -147,9 +198,12 @@ for (const [id, action] of Object.entries(buttonActions)) {
       return;
     }
 
-    selectedAction = action;
+    selectedAction =
+      scheduledMode && scheduledVariants[action]
+        ? scheduledVariants[action]
+        : action;
 
-    const info = actionInfo[action];
+    const info = actionInfo[selectedAction];
 
     $("modalTitle").textContent = info.title;
     $("modalText").textContent = info.text;

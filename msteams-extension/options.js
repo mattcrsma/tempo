@@ -6,8 +6,17 @@ const saveButton = $("saveSettings");
 const reloadButton = $("reloadSettings");
 const statusBox = $("settingsStatus");
 
+const messageList = $("messageList");
+const addMessageButton = $("addMessage");
+const saveMessagesButton = $("saveMessages");
+const messagesStatusBox = $("messagesStatus");
+
+const MAX_MESSAGES = 20;
+const MAX_MESSAGE_LENGTH = 200;
+
 let loading = false;
 let saving = false;
+let savingMessages = false;
 let themeChanged = false;
 
 function withTimeout(promise, milliseconds = 4000) {
@@ -83,6 +92,86 @@ function showStatus(message, type = "") {
   statusBox.className = `status show ${type}`;
 }
 
+function showMessagesStatus(message, type = "") {
+  messagesStatusBox.textContent = message;
+  messagesStatusBox.className = `status show ${type}`;
+}
+
+/* BYEBYE MESSAGES */
+
+function setMessageControlsDisabled(disabled) {
+  saveMessagesButton.disabled = disabled;
+
+  for (const control of messageList.querySelectorAll("input, button")) {
+    control.disabled = disabled;
+  }
+
+  addMessageButton.disabled =
+    disabled || messageList.children.length >= MAX_MESSAGES;
+}
+
+function createMessageRow(value = "") {
+  const row = document.createElement("div");
+  row.className = "message-row";
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.value = value;
+  input.maxLength = MAX_MESSAGE_LENGTH;
+  input.placeholder = "e.g. byebye";
+  input.autocomplete = "off";
+  input.setAttribute("aria-label", "Time In message");
+
+  const removeButton = document.createElement("button");
+  removeButton.type = "button";
+  removeButton.className = "secondary-button remove-button";
+  removeButton.textContent = "Remove";
+
+  input.addEventListener("input", () => {
+    showMessagesStatus("Unsaved changes.");
+  });
+
+  removeButton.addEventListener("click", () => {
+    row.remove();
+
+    // Always keep one field available to type into.
+    if (!messageList.children.length) {
+      messageList.append(createMessageRow());
+    }
+
+    addMessageButton.disabled =
+      messageList.children.length >= MAX_MESSAGES;
+
+    showMessagesStatus("Unsaved changes.");
+  });
+
+  row.append(input, removeButton);
+
+  return row;
+}
+
+function renderMessages(messages) {
+  messageList.replaceChildren();
+
+  const saved = Array.isArray(messages)
+    ? messages.filter(text => typeof text === "string")
+    : [];
+
+  for (const text of saved.slice(0, MAX_MESSAGES)) {
+    messageList.append(createMessageRow(text));
+  }
+
+  if (!messageList.children.length) {
+    messageList.append(createMessageRow());
+  }
+}
+
+function collectMessages() {
+  return [...messageList.querySelectorAll("input")]
+    .map(input => input.value.trim())
+    .filter(Boolean);
+}
+
 function applyTheme(theme) {
   const dark = theme === "dark";
 
@@ -105,13 +194,14 @@ function setControlsDisabled(disabled) {
 /* LOAD SETTINGS */
 
 async function loadSettings() {
-  if (loading || saving) {
+  if (loading || saving || savingMessages) {
     return;
   }
 
   loading = true;
 
   setControlsDisabled(true);
+  setMessageControlsDisabled(true);
   reloadButton.disabled = true;
   hideUrl();
 
@@ -121,17 +211,22 @@ async function loadSettings() {
     const data = await withTimeout(
       chrome.storage.local.get([
         "flowUrl",
-        "tempoTheme"
+        "tempoTheme",
+        "byebyeMessages"
       ])
     );
 
     urlInput.value = data.flowUrl || "";
+
+    renderMessages(data.byebyeMessages);
+    messagesStatusBox.className = "status";
 
     if (!themeChanged) {
       applyTheme(data.tempoTheme || "light");
     }
 
     setControlsDisabled(false);
+    setMessageControlsDisabled(false);
 
     showStatus(
       data.flowUrl
@@ -170,7 +265,7 @@ urlInput.addEventListener("input", () => {
 $("settingsForm").addEventListener("submit", async event => {
   event.preventDefault();
 
-  if (loading || saving || saveButton.disabled) {
+  if (loading || saving || savingMessages || saveButton.disabled) {
     return;
   }
 
@@ -225,6 +320,83 @@ $("settingsForm").addEventListener("submit", async event => {
     saving = false;
 
     setControlsDisabled(false);
+    reloadButton.disabled = false;
+  }
+});
+
+/* SAVE MESSAGES */
+
+addMessageButton.addEventListener("click", () => {
+  if (messageList.children.length >= MAX_MESSAGES) {
+    return;
+  }
+
+  const row = createMessageRow();
+
+  messageList.append(row);
+  row.querySelector("input").focus();
+
+  addMessageButton.disabled =
+    messageList.children.length >= MAX_MESSAGES;
+});
+
+$("messagesForm").addEventListener("submit", async event => {
+  event.preventDefault();
+
+  if (
+    loading ||
+    saving ||
+    savingMessages ||
+    saveMessagesButton.disabled
+  ) {
+    return;
+  }
+
+  const messages = collectMessages();
+
+  savingMessages = true;
+
+  setMessageControlsDisabled(true);
+  reloadButton.disabled = true;
+
+  showMessagesStatus("Saving…");
+
+  try {
+    await withTimeout(
+      chrome.storage.local.set({
+        byebyeMessages: messages
+      })
+    );
+
+    // Read the value back to verify the save.
+    const saved = await withTimeout(
+      chrome.storage.local.get("byebyeMessages")
+    );
+
+    if (
+      JSON.stringify(saved.byebyeMessages) !==
+      JSON.stringify(messages)
+    ) {
+      throw new Error("Save verification failed.");
+    }
+
+    renderMessages(messages);
+
+    showMessagesStatus(
+      messages.length
+        ? `✓ Saved ${messages.length} message${messages.length === 1 ? "" : "s"}.`
+        : "✓ Saved. No messages set, so the flow's default text will be used.",
+      "success"
+    );
+  } catch {
+    showMessagesStatus(
+      "✕ Could not confirm the save. Click Reload saved settings to check the stored messages, then try again.",
+      "error"
+    );
+  } finally {
+    savingMessages = false;
+
+    setMessageControlsDisabled(false);
     reloadButton.disabled = false;
   }
 });

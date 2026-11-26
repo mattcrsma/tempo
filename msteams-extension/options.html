@@ -234,6 +234,30 @@
       color: #fca5a5;
     }
 
+    .messages-card {
+      margin-top: 24px;
+    }
+
+    .message-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .message-row {
+      display: flex;
+      gap: 12px;
+    }
+
+    .message-row input {
+      height: 46px;
+    }
+
+    .remove-button {
+      min-width: 90px;
+      height: 46px;
+    }
+
     .footer-note {
       margin-top: 20px;
       color: var(--muted);
@@ -357,6 +381,52 @@
 
         <div
           id="settingsStatus"
+          class="status"
+          role="status"
+          aria-live="polite"
+        ></div>
+      </form>
+    </section>
+
+    <section class="card messages-card">
+      <h2>Time In messages</h2>
+
+      <p class="description">
+        Add the messages for the end-of-day “byebye” post. When you press
+        Time In, Tempo picks one at random and sends it to your flow. With
+        only one message it is always used. Leave everything blank to use
+        the flow’s default text.
+      </p>
+
+      <form id="messagesForm" novalidate>
+        <div id="messageList" class="message-list"></div>
+
+        <p class="help">
+          Up to 20 messages, 200 characters each. Plain text only.
+        </p>
+
+        <div class="actions">
+          <button
+            id="saveMessages"
+            class="save-button"
+            type="submit"
+            disabled
+          >
+            Save messages
+          </button>
+
+          <button
+            id="addMessage"
+            class="secondary-button"
+            type="button"
+            disabled
+          >
+            + Add message
+          </button>
+        </div>
+
+        <div
+          id="messagesStatus"
           class="status"
           role="status"
           aria-live="polite"

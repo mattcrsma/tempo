@@ -120,7 +120,35 @@
     }
 
     .greeting {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
       margin-bottom: 13px;
+    }
+
+    .mode-toggle {
+      display: flex;
+      flex-shrink: 0;
+      padding: 2px;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: var(--surface);
+    }
+
+    .mode-option {
+      padding: 4px 10px;
+      border: 0;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 650;
+    }
+
+    .mode-option.active {
+      background: #2563eb;
+      color: #ffffff;
     }
 
     .greeting-title {
@@ -386,6 +414,27 @@
 
     <div class="greeting">
       <div class="greeting-title">Choose an action below</div>
+
+      <div
+        class="mode-toggle"
+        role="group"
+        aria-label="Snack Break and Lunch timing"
+        title="Applies to Snack Break and Lunch"
+      >
+        <button
+          id="modeNow"
+          class="mode-option active"
+          type="button"
+          aria-pressed="true"
+        >Now</button>
+
+        <button
+          id="modeScheduled"
+          class="mode-option"
+          type="button"
+          aria-pressed="false"
+        >Scheduled</button>
+      </div>
     </div>
 
     <div class="actions">
@@ -402,7 +451,7 @@
         <span class="action-icon break-icon">☕</span>
         <span class="action-content">
           <span class="action-title">Snack Break</span>
-          <span class="action-description">30 minute break</span>
+          <span id="snackDescription" class="action-description">30 minute break</span>
         </span>
         <span class="action-arrow">→</span>
       </button>
@@ -411,7 +460,7 @@
         <span class="action-icon break-icon">🍱</span>
         <span class="action-content">
           <span class="action-title">Lunch</span>
-          <span class="action-description">1 hour break</span>
+          <span id="lunchDescription" class="action-description">1 hour break</span>
         </span>
         <span class="action-arrow">→</span>
       </button>

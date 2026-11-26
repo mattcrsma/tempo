@@ -2,12 +2,82 @@ const allowedActions = new Set([
   "TIME_IN",
   "SNACK",
   "LUNCH",
+  "SNACK_SCHED",
+  "LUNCH_SCHED",
   "SNACKK",
   "LUNCHH",
   "BACKK"
 ]);
 
+// Scheduled breaks use the same time zone as the flow (Singapore Standard Time).
+const SCHEDULE_TIME_ZONE = "Asia/Singapore";
+
+const scheduledActions = {
+  SNACK_SCHED: {
+    label: "Snack Break",
+    startMinutes: 10 * 60,
+    startText: "10:00 AM",
+    windowText: "10:00–10:30 AM"
+  },
+
+  LUNCH_SCHED: {
+    label: "Lunch",
+    startMinutes: 13 * 60,
+    startText: "1:00 PM",
+    windowText: "1:00–2:00 PM"
+  }
+};
+
+const MAX_BYEBYE_MESSAGES = 20;
+const MAX_BYEBYE_LENGTH = 200;
+
 let sending = false;
+
+function currentMinutesInScheduleZone() {
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: SCHEDULE_TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23"
+  }).formatToParts(new Date());
+
+  const read = type =>
+    Number(parts.find(part => part.type === type).value);
+
+  return read("hour") * 60 + read("minute");
+}
+
+function escapeHtml(text) {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// Picks one saved byebye message at random. Returns "" when none are saved,
+// so the flow falls back to its default text.
+function pickByebyeMessage(saved) {
+  if (!Array.isArray(saved)) {
+    return "";
+  }
+
+  const options = saved
+    .filter(text => typeof text === "string")
+    .map(text => text.trim().slice(0, MAX_BYEBYE_LENGTH))
+    .filter(Boolean)
+    .slice(0, MAX_BYEBYE_MESSAGES);
+
+  if (!options.length) {
+    return "";
+  }
+
+  const choice = options[Math.floor(Math.random() * options.length)];
+
+  // The flow posts this inside an HTML paragraph.
+  return escapeHtml(choice);
+}
 
 function withTimeout(promise, milliseconds = 4000) {
   return new Promise((resolve, reject) => {
@@ -75,6 +145,18 @@ async function sendAction(action) {
     };
   }
 
+  const schedule = scheduledActions[action];
+
+  if (
+    schedule &&
+    currentMinutesInScheduleZone() >= schedule.startMinutes
+  ) {
+    return {
+      type: "error",
+      message: `Too late to schedule ${schedule.label}. It must be sent before ${schedule.startText} (Singapore time). Switch to "Now" to start it immediately.`
+    };
+  }
+
   if (sending) {
     return {
       type: "error",
@@ -88,7 +170,7 @@ async function sendAction(action) {
 
   try {
     const data = await withTimeout(
-      chrome.storage.local.get("flowUrl")
+      chrome.storage.local.get(["flowUrl", "byebyeMessages"])
     );
 
     let url;
@@ -110,6 +192,16 @@ async function sendAction(action) {
     }
 
     if (!result) {
+      const payload = { action };
+
+      if (action === "TIME_IN") {
+        const byebyeMessage = pickByebyeMessage(data.byebyeMessages);
+
+        if (byebyeMessage) {
+          payload.byebyeMessage = byebyeMessage;
+        }
+      }
+
       const controller = new AbortController();
 
       const timer = setTimeout(() => {
@@ -126,7 +218,7 @@ async function sendAction(action) {
             "Content-Type": "application/json"
           },
 
-          body: JSON.stringify({ action }),
+          body: JSON.stringify(payload),
           signal: controller.signal,
           credentials: "omit",
           redirect: "error",
@@ -139,7 +231,9 @@ async function sendAction(action) {
       if (response.ok) {
         result = {
           type: "success",
-          message: "✓ Request accepted. Check Power Automate run history for completion."
+          message: schedule
+            ? `✓ ${schedule.label} scheduled for ${schedule.windowText} (Singapore time). Check Power Automate run history for completion.`
+            : "✓ Request accepted. Check Power Automate run history for completion."
         };
       } else {
         const advice = [401, 403].includes(response.status)
