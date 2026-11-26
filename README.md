@@ -9,9 +9,11 @@ Tempo sends your selected action to your own Power Automate HTTP endpoint. Each 
 - ▶ Time In
 - ☕ Snack Break with automatic Back after 30 minutes
 - 🍱 Lunch with automatic Back after 1 hour
-- 🕒 **Now / Scheduled** toggle for Snack Break and Lunch:
+- 📚 Learning Time: sends “training”, then “(learning time)”
+- 🕒 **Now / Scheduled** toggle for Snack Break, Lunch and Learning Time:
   - Scheduled Snack Break: 10:00–10:30 AM
   - Scheduled Lunch: 1:00–2:00 PM
+  - Scheduled Learning Time: starts at 10:00 AM, lunch at 1:00 PM, back at 2:00 PM, then learning time again
   - Only works if sent before the start time, otherwise Tempo shows an error
 - ☕ Snack Break (RTO), without automatic Back
 - 🍱 Lunch (RTO), without automatic Back
@@ -133,7 +135,7 @@ Below **Current PH Time**:
 triggerBody()?['action']
 ```
 
-Create these seven cases:
+Create these nine cases:
 
 | Case | Equals |
 | --- | --- |
@@ -141,15 +143,17 @@ Create these seven cases:
 | Lunch | `LUNCH` |
 | Snack Break (scheduled) | `SNACK_SCHED` |
 | Lunch (scheduled) | `LUNCH_SCHED` |
+| Learning Time | `LEARNING` |
+| Learning Time (scheduled) | `LEARNING_SCHED` |
 | Snack Break without automatic Back | `SNACKK` |
 | Lunch without automatic Back | `LUNCHH` |
 | Back | `BACKK` |
 
 Use the existing **Default** branch for Time In.
 
-Tempo sends `TIME_IN` for its Time In button. Because it does not match one of the seven cases, it runs Default. Other unmatched action values also run Default.
+Tempo sends `TIME_IN` for its Time In button. Because it does not match one of the nine cases, it runs Default. Other unmatched action values also run Default.
 
-**Create the scheduled cases before using Scheduled mode.** Without them, `SNACK_SCHED` and `LUNCH_SCHED` would fall into Default and run Time In.
+**Create the scheduled cases before using Scheduled mode.** Without them, `SNACK_SCHED`, `LUNCH_SCHED` and `LEARNING_SCHED` would fall into Default and run Time In. The same applies to `LEARNING`.
 
 ## 3. Configure the Teams messages
 
@@ -243,6 +247,59 @@ Inside the case with **Equals = LUNCH_SCHED**, build the same structure as `SNAC
 - **Delay**: Count `60`, Unit **Minute**
 - Second Teams message: `back`
 - Terminate message: `Scheduled lunch must be sent before 1:00 PM.`
+
+### LEARNING
+
+Inside the case with **Equals = LEARNING**, add:
+
+1. Teams message: `training`
+2. **Schedule → Delay**
+   - Count: `3`
+   - Unit: **Second**
+3. Teams message: `(learning time)`
+
+### LEARNING_SCHED
+
+Inside the case with **Equals = LEARNING_SCHED**, add **Control → Condition**.
+
+Configure:
+
+- Left value, using the Expression editor:
+
+  ```text
+  formatDateTime(convertTimeZone(utcNow(),'UTC','Singapore Standard Time'),'HH:mm')
+  ```
+
+- Operator: **is less than**
+- Right value: `10:00`
+
+In the **Yes / True** branch, add these steps in order:
+
+1. **Schedule → Delay until**. For **Timestamp**, use:
+
+   ```text
+   convertTimeZone(concat(formatDateTime(convertTimeZone(utcNow(),'UTC','Singapore Standard Time'),'yyyy-MM-dd'),'T10:00:00'),'Singapore Standard Time','UTC')
+   ```
+
+2. Teams message: `training`
+3. **Schedule → Delay**: Count `3`, Unit **Second**
+4. Teams message: `(learning time)`
+5. **Schedule → Delay until**, using the same expression with `T13:00:00` instead of `T10:00:00`
+6. Teams message: `lunch`
+7. **Schedule → Delay**: Count `60`, Unit **Minute**
+8. Teams message: `back`
+9. **Schedule → Delay**: Count `2`, Unit **Second**
+10. Teams message: `training`
+11. **Schedule → Delay**: Count `3`, Unit **Second**
+12. Teams message: `(learning time)`
+
+In the **No / False** branch, add **Control → Terminate**:
+
+| Field | Value |
+| --- | --- |
+| Status | **Failed** |
+| Code | `TooLate` |
+| Message | `Scheduled learning time must be sent before 10:00 AM.` |
 
 ### SNACKK
 
@@ -454,13 +511,15 @@ Saving validates the URL format and local storage. It does not send a request to
 | 🍱 Lunch | `LUNCH` | Posts lunch, waits 60 minutes, then posts back |
 | ☕ Snack Break (Scheduled mode) | `SNACK_SCHED` | Waits until 10:00 AM, posts snack break, waits 30 minutes, then posts back |
 | 🍱 Lunch (Scheduled mode) | `LUNCH_SCHED` | Waits until 1:00 PM, posts lunch, waits 60 minutes, then posts back |
+| 📚 Learning Time | `LEARNING` | Posts training, waits 3 seconds, then posts (learning time) |
+| 📚 Learning Time (Scheduled mode) | `LEARNING_SCHED` | At 10:00 AM posts training and (learning time), at 1:00 PM posts lunch, at 2:00 PM posts back, then posts training and (learning time) again |
 | ☕ Snack Break (RTO) | `SNACKK` | Posts snack break only |
 | 🍱 Lunch (RTO) | `LUNCHH` | Posts lunch only |
 | ↩ Back | `BACKK` | Posts back only |
 
 ### Now / Scheduled toggle
 
-The toggle beside **Choose an action below** switches the main **Snack Break** and **Lunch** buttons between:
+The toggle beside **Choose an action below** switches the main **Snack Break**, **Lunch** and **Learning Time** buttons between:
 
 - **Now:** starts the break immediately, as before.
 - **Scheduled:** books the break for its fixed time. The card descriptions change to show the times.
@@ -471,6 +530,7 @@ Scheduled times use Singapore time (UTC+8), matching Philippine time. They only 
 
 - Snack Break before 10:00 AM
 - Lunch before 1:00 PM
+- Learning Time before 10:00 AM
 
 If you confirm one after its start time, Tempo shows a “Too late” message and sends nothing. The flow performs the same check as a safety net, but the popup is where you will see the error.
 
@@ -527,8 +587,8 @@ If delivery cannot be confirmed, inspect run history before retrying. The flow m
 | HTTP 400 | Check the request schema and action values. |
 | Delivery cannot be confirmed | Check your connection and Power Automate run history before retrying. |
 | Request accepted but no Teams message | Inspect the selected branch, Teams connection, destination chat, and run errors. |
-| “Too late to schedule…” | Scheduled Snack Break must be sent before 10:00 AM and Lunch before 1:00 PM (Singapore time). Switch to **Now** to start immediately. |
-| Scheduled mode runs Time In | The `SNACK_SCHED` or `LUNCH_SCHED` case is missing from the Switch, so the request fell into Default. Add the cases. |
+| “Too late to schedule…” | Scheduled Snack Break and Learning Time must be sent before 10:00 AM, and Lunch before 1:00 PM (Singapore time). Switch to **Now** to start immediately. |
+| Scheduled mode runs Time In | A `SNACK_SCHED`, `LUNCH_SCHED`, `LEARNING` or `LEARNING_SCHED` case is missing from the Switch, so the request fell into Default. Add the cases. |
 | Byebye always says “byebye” | Check that messages are saved in Settings, that the **ByeMsg** Compose exists, and that the final Teams message uses its **Outputs**. |
 | Missing icon | Confirm the file is `images/icon.png` and all image references use that path. |
 | Error mentions `url-validation.js` | You have mixed old and new files. The current version does not use that file or `importScripts()`. Replace the outdated code and reload. |

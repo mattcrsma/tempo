@@ -210,6 +210,15 @@
       color: #ea580c;
     }
 
+    .learn-icon {
+      background: #f5f3ff;
+      color: #7c3aed;
+    }
+
+    body.dark .learn-icon {
+      background: #2e1065;
+    }
+
     body.dark .time-icon {
       background: #172554;
     }
@@ -418,8 +427,8 @@
       <div
         class="mode-toggle"
         role="group"
-        aria-label="Snack Break and Lunch timing"
-        title="Applies to Snack Break and Lunch"
+        aria-label="Snack Break, Lunch and Learning Time timing"
+        title="Applies to Snack Break, Lunch and Learning Time"
       >
         <button
           id="modeNow"
@@ -461,6 +470,15 @@
         <span class="action-content">
           <span class="action-title">Lunch</span>
           <span id="lunchDescription" class="action-description">1 hour break</span>
+        </span>
+        <span class="action-arrow">→</span>
+      </button>
+
+      <button id="learningButton" class="action" type="button">
+        <span class="action-icon learn-icon">📚</span>
+        <span class="action-content">
+          <span class="action-title">Learning Time</span>
+          <span id="learningDescription" class="action-description">Training, then (learning time)</span>
         </span>
         <span class="action-arrow">→</span>
       </button>

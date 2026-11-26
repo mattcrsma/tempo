@@ -4,6 +4,8 @@ const allowedActions = new Set([
   "LUNCH",
   "SNACK_SCHED",
   "LUNCH_SCHED",
+  "LEARNING",
+  "LEARNING_SCHED",
   "SNACKK",
   "LUNCHH",
   "BACKK"
@@ -25,6 +27,13 @@ const scheduledActions = {
     startMinutes: 13 * 60,
     startText: "1:00 PM",
     windowText: "1:00–2:00 PM"
+  },
+
+  LEARNING_SCHED: {
+    label: "Learning Time",
+    startMinutes: 10 * 60,
+    startText: "10:00 AM",
+    windowText: "10:00 AM, with lunch 1:00–2:00 PM"
   }
 };
 

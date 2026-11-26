@@ -11,6 +11,7 @@ const buttonActions = {
   timeInButton: "TIME_IN",
   snackButton: "SNACK",
   lunchButton: "LUNCH",
+  learningButton: "LEARNING",
   snack2Button: "SNACKK",
   lunch2Button: "LUNCHH",
   back2Button: "BACKK"
@@ -19,68 +20,83 @@ const buttonActions = {
 const actionInfo = {
   TIME_IN: {
     title: "Time In?",
-    text: "Start your Time In flow?",
+    text: "Send your Time In.",
     icon: "▶"
   },
 
   SNACK: {
     title: "Snack Break?",
-    text: "Start your 30-minute snack break? Power Automate handles the automatic Back message.",
+    text: "Snack break now. Back after 30 minutes.",
     icon: "☕"
   },
 
   LUNCH: {
     title: "Lunch?",
-    text: "Start your 1-hour lunch break? Power Automate handles the automatic Back message.",
+    text: "Lunch now. Back after 1 hour.",
     icon: "🍱"
   },
 
   SNACKK: {
     title: "Snack Break (RTO)?",
-    text: "Send Snack Break without an automatic Back message?",
+    text: "Snack break only. No automatic Back.",
     icon: "☕"
   },
 
   LUNCHH: {
     title: "Lunch (RTO)?",
-    text: "Send Lunch without an automatic Back message?",
+    text: "Lunch only. No automatic Back.",
     icon: "🍱"
   },
 
   BACKK: {
     title: "Back?",
-    text: "Send your Back message?",
+    text: "Send Back.",
     icon: "↩"
   },
 
   SNACK_SCHED: {
     title: "Schedule Snack Break?",
-    text: "Schedule your snack break for 10:00–10:30 AM (Singapore time)? This only works if sent before 10:00 AM. Power Automate posts the break and Back messages at those times.",
+    text: "Snack break at 10:00 AM. Back at 10:30 AM.",
     icon: "☕"
   },
 
   LUNCH_SCHED: {
     title: "Schedule Lunch?",
-    text: "Schedule your lunch for 1:00–2:00 PM (Singapore time)? This only works if sent before 1:00 PM. Power Automate posts the lunch and Back messages at those times.",
+    text: "Lunch at 1:00 PM. Back at 2:00 PM.",
     icon: "🍱"
+  },
+
+  LEARNING: {
+    title: "Learning Time?",
+    text: "Send \"training\", then \"(learning time)\".",
+    icon: "📚"
+  },
+
+  LEARNING_SCHED: {
+    title: "Schedule Learning Time?",
+    text: "10:00 AM: training, then (learning time). 1:00 PM: lunch. 2:00 PM: back, then training and (learning time) again.",
+    icon: "📚"
   }
 };
 
 // Snack Break and Lunch switch to these actions in "Scheduled" mode.
 const scheduledVariants = {
   SNACK: "SNACK_SCHED",
-  LUNCH: "LUNCH_SCHED"
+  LUNCH: "LUNCH_SCHED",
+  LEARNING: "LEARNING_SCHED"
 };
 
 const modeText = {
   now: {
     snack: "30 minute break",
-    lunch: "1 hour break"
+    lunch: "1 hour break",
+    learning: "Training, then (learning time)"
   },
 
   scheduled: {
     snack: "Scheduled 10:00–10:30 AM",
-    lunch: "Scheduled 1:00–2:00 PM"
+    lunch: "Scheduled 1:00–2:00 PM",
+    learning: "Scheduled 10:00 AM, lunch 1:00–2:00 PM"
   }
 };
 
@@ -93,6 +109,7 @@ function setMode(scheduled) {
 
   $("snackDescription").textContent = text.snack;
   $("lunchDescription").textContent = text.lunch;
+  $("learningDescription").textContent = text.learning;
 
   $("modeNow").classList.toggle("active", !scheduled);
   $("modeScheduled").classList.toggle("active", scheduled);
