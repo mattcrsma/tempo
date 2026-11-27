@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Tempo",
-  "version": "1.3.1",
-  "description": "Trigger your work automation through Microsoft Power Automate.",
+  "name": "Tempo Morning",
+  "version": "1.4.0",
+  "description": "Morning-shift time entries (time in, breaks, learning time) through Microsoft Power Automate.",
   "minimum_chrome_version": "102",
   "permissions": [
     "storage"
@@ -13,7 +13,7 @@
   ],
   "action": {
     "default_popup": "index.html",
-    "default_title": "Tempo",
+    "default_title": "Tempo Morning",
     "default_icon": {
       "16": "images/icon16.png",
       "32": "images/icon32.png",

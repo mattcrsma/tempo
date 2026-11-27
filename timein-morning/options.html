@@ -258,6 +258,27 @@
       height: 46px;
     }
 
+    .schedule-card {
+      margin-top: 24px;
+    }
+
+    .time-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .time-field input {
+      height: 50px;
+    }
+
+    .time-note {
+      display: block;
+      margin-top: 6px;
+      font-size: 12px;
+      font-weight: 400;
+    }
+
     .footer-note {
       margin-top: 20px;
       color: var(--muted);
@@ -291,6 +312,10 @@
         min-width: 70px;
         padding: 0 12px;
       }
+
+      .time-grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -304,6 +329,7 @@
         <div>
           <h1>Tempo Settings</h1>
           <p class="subtitle">
+            <span id="shiftName">Morning Shift</span> ·
             Connect Tempo to your own Power Automate flow.
           </p>
         </div>
@@ -388,6 +414,73 @@
       </form>
     </section>
 
+    <section class="card schedule-card">
+      <h2>Break schedule</h2>
+
+      <p class="description">
+        Start times used by <strong>Scheduled</strong> mode, in Philippine
+        time. Snack Break lasts 30 minutes and
+        <span class="meal-name">Lunch</span> lasts 1 hour. Scheduled
+        Learning Time starts at its own time, pauses for
+        <span class="meal-name-lower">lunch</span>, then continues.
+      </p>
+
+      <form id="scheduleForm" novalidate>
+        <div class="time-grid">
+          <label class="time-field" for="snackTime">
+            Snack Break
+            <input id="snackTime" type="time" step="60" required disabled>
+            <span id="snackNote" class="time-note"></span>
+          </label>
+
+          <label class="time-field" for="mealTime">
+            <span class="meal-name">Lunch</span>
+            <input id="mealTime" type="time" step="60" required disabled>
+            <span id="mealNote" class="time-note"></span>
+          </label>
+
+          <label class="time-field" for="learningTime">
+            Learning Time
+            <input id="learningTime" type="time" step="60" required disabled>
+            <span id="learningNote" class="time-note"></span>
+          </label>
+        </div>
+
+        <p class="help">
+          Your Power Automate flow must use the times Tempo sends. If your
+          flow still has fixed times in its scheduled steps, it keeps using
+          those. See “Scheduled cases” in the README.
+        </p>
+
+        <div class="actions">
+          <button
+            id="saveSchedule"
+            class="save-button"
+            type="submit"
+            disabled
+          >
+            Save schedule
+          </button>
+
+          <button
+            id="resetSchedule"
+            class="secondary-button"
+            type="button"
+            disabled
+          >
+            Reset to defaults
+          </button>
+        </div>
+
+        <div
+          id="scheduleStatus"
+          class="status"
+          role="status"
+          aria-live="polite"
+        ></div>
+      </form>
+    </section>
+
     <section class="card messages-card">
       <h2>Time In messages</h2>
 
@@ -440,6 +533,8 @@
     </p>
   </main>
 
+  <script src="shift.js"></script>
+  <script src="schedule.js"></script>
   <script src="options.js"></script>
 </body>
 </html>

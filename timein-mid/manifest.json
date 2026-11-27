@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "Tempo Mid",
+  "version": "1.4.0",
+  "description": "Mid-shift time entries (time in, breaks, learning time) through Microsoft Power Automate.",
+  "minimum_chrome_version": "102",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://*.environment.api.powerplatform.com/*",
+    "https://*.logic.azure.com/*"
+  ],
+  "action": {
+    "default_popup": "index.html",
+    "default_title": "Tempo Mid",
+    "default_icon": {
+      "16": "images/icon16.png",
+      "32": "images/icon32.png",
+      "48": "images/icon48.png"
+    }
+  },
+  "icons": {
+    "16": "images/icon16.png",
+    "32": "images/icon32.png",
+    "48": "images/icon48.png",
+    "128": "images/icon128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "options_page": "options.html"
+}

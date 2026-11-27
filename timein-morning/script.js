@@ -7,17 +7,23 @@ let busy = false;
 let selectedAction = null;
 let themeChanged = false;
 
+const SHIFT = globalThis.TEMPO_SHIFT;
+const MEAL = SHIFT.meal;
+const { DURATIONS, resolveTimes, scheduledPlan } = globalThis.TempoSchedule;
+
+let scheduleTimes = resolveTimes(null);
+
 const buttonActions = {
   timeInButton: "TIME_IN",
   snackButton: "SNACK",
-  lunchButton: "LUNCH",
+  mealButton: MEAL.nowAction,
   learningButton: "LEARNING",
   snack2Button: "SNACKK",
-  lunch2Button: "LUNCHH",
+  meal2Button: MEAL.rtoAction,
   back2Button: "BACKK"
 };
 
-const actionInfo = {
+const fixedActionInfo = {
   TIME_IN: {
     title: "Time In?",
     text: "Send your Time In.",
@@ -26,14 +32,14 @@ const actionInfo = {
 
   SNACK: {
     title: "Snack Break?",
-    text: "Snack break now. Back after 30 minutes.",
+    text: `Snack break now. Back after ${DURATIONS.snack} minutes.`,
     icon: "☕"
   },
 
-  LUNCH: {
-    title: "Lunch?",
-    text: "Lunch now. Back after 1 hour.",
-    icon: "🍱"
+  [MEAL.nowAction]: {
+    title: `${MEAL.label}?`,
+    text: `${MEAL.label} now. Back after 1 hour.`,
+    icon: MEAL.icon
   },
 
   SNACKK: {
@@ -42,10 +48,10 @@ const actionInfo = {
     icon: "☕"
   },
 
-  LUNCHH: {
-    title: "Lunch (RTO)?",
-    text: "Lunch only. No automatic Back.",
-    icon: "🍱"
+  [MEAL.rtoAction]: {
+    title: `${MEAL.label} (RTO)?`,
+    text: `${MEAL.label} only. No automatic Back.`,
+    icon: MEAL.icon
   },
 
   BACKK: {
@@ -54,67 +60,79 @@ const actionInfo = {
     icon: "↩"
   },
 
-  SNACK_SCHED: {
-    title: "Schedule Snack Break?",
-    text: "Snack break at 10:00 AM. Back at 10:30 AM.",
-    icon: "☕"
-  },
-
-  LUNCH_SCHED: {
-    title: "Schedule Lunch?",
-    text: "Lunch at 1:00 PM. Back at 2:00 PM.",
-    icon: "🍱"
-  },
-
   LEARNING: {
     title: "Learning Time?",
     text: "Send \"training\", then \"(learning time)\".",
     icon: "📚"
-  },
-
-  LEARNING_SCHED: {
-    title: "Schedule Learning Time?",
-    text: "10:00 AM: training, then (learning time). 1:00 PM: lunch. 2:00 PM: back, then training and (learning time) again.",
-    icon: "📚"
   }
 };
 
-// Snack Break and Lunch switch to these actions in "Scheduled" mode.
+// Scheduled actions use the times saved in Settings.
+function actionInfo(action) {
+  const plan = scheduledPlan(action, scheduleTimes);
+
+  return plan
+    ? {
+      title: `Schedule ${plan.label}?`,
+      text: plan.confirm,
+      icon: plan.icon
+    }
+    : fixedActionInfo[action];
+}
+
+// Snack Break, the meal and Learning Time switch to these actions in
+// "Scheduled" mode.
 const scheduledVariants = {
   SNACK: "SNACK_SCHED",
-  LUNCH: "LUNCH_SCHED",
+  [MEAL.nowAction]: MEAL.scheduledAction,
   LEARNING: "LEARNING_SCHED"
 };
 
-const modeText = {
-  now: {
-    snack: "30 minute break",
-    lunch: "1 hour break",
-    learning: "Training, then (learning time)"
-  },
+const nowText = {
+  snackDescription: `${DURATIONS.snack} minute break`,
+  mealDescription: "1 hour break",
+  learningDescription: "Training, then (learning time)"
+};
 
-  scheduled: {
-    snack: "Scheduled 10:00–10:30 AM",
-    lunch: "Scheduled 1:00–2:00 PM",
-    learning: "Scheduled 10:00 AM, lunch 1:00–2:00 PM"
-  }
+const scheduledDescriptionAction = {
+  snackDescription: "SNACK_SCHED",
+  mealDescription: MEAL.scheduledAction,
+  learningDescription: "LEARNING_SCHED"
 };
 
 let scheduledMode = false;
 
+function renderDescriptions() {
+  for (const [id, action] of Object.entries(scheduledDescriptionAction)) {
+    $(id).textContent = scheduledMode
+      ? `Scheduled ${scheduledPlan(action, scheduleTimes).summary}`
+      : nowText[id];
+  }
+}
+
 function setMode(scheduled) {
   scheduledMode = scheduled;
 
-  const text = modeText[scheduled ? "scheduled" : "now"];
-
-  $("snackDescription").textContent = text.snack;
-  $("lunchDescription").textContent = text.lunch;
-  $("learningDescription").textContent = text.learning;
+  renderDescriptions();
 
   $("modeNow").classList.toggle("active", !scheduled);
   $("modeScheduled").classList.toggle("active", scheduled);
   $("modeNow").setAttribute("aria-pressed", String(!scheduled));
   $("modeScheduled").setAttribute("aria-pressed", String(scheduled));
+}
+
+function applyShiftLabels() {
+  const toggleText =
+    `Applies to Snack Break, ${MEAL.label} and Learning Time`;
+
+  document.title = `Tempo · ${SHIFT.name}`;
+  $("shiftBadge").textContent = SHIFT.name;
+  $("mealIcon").textContent = MEAL.icon;
+  $("mealTitle").textContent = MEAL.label;
+  $("meal2Icon").textContent = MEAL.icon;
+  $("meal2Title").textContent = `${MEAL.label} (RTO)`;
+  $("modeToggle").title = toggleText;
+  $("modeToggle").setAttribute("aria-label", toggleText);
 }
 
 $("modeNow").addEventListener("click", () => setMode(false));
@@ -220,7 +238,7 @@ for (const [id, action] of Object.entries(buttonActions)) {
         ? scheduledVariants[action]
         : action;
 
-    const info = actionInfo[selectedAction];
+    const info = actionInfo(selectedAction);
 
     $("modalTitle").textContent = info.title;
     $("modalText").textContent = info.text;
@@ -291,6 +309,11 @@ chrome.storage.onChanged.addListener((changes, area) => {
     applyTheme(changes.tempoTheme.newValue || "light");
   }
 
+  if (changes.scheduleTimes) {
+    scheduleTimes = resolveTimes(changes.scheduleTimes.newValue);
+    renderDescriptions();
+  }
+
   if (changes.flowUrl && !busy) {
     showStatus(
       changes.flowUrl.newValue
@@ -310,6 +333,8 @@ chrome.storage.onChanged.addListener((changes, area) => {
 /* STARTUP */
 
 async function initialize() {
+  applyShiftLabels();
+  setMode(false);
   setBusy(false);
 
   try {
@@ -325,9 +350,13 @@ async function initialize() {
       chrome.storage.local.get([
         "tempoTheme",
         "flowUrl",
-        "lastResult"
+        "lastResult",
+        "scheduleTimes"
       ])
     );
+
+    scheduleTimes = resolveTimes(data.scheduleTimes);
+    renderDescriptions();
 
     if (data.tempoTheme && !themeChanged) {
       applyTheme(data.tempoTheme);

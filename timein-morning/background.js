@@ -1,60 +1,32 @@
+importScripts("shift.js", "schedule.js");
+
+const SHIFT = globalThis.TEMPO_SHIFT;
+const {
+  resolveTimes,
+  validateTimes,
+  scheduledPlan,
+  todayAt,
+  toFlowTimestamp,
+  formatClock
+} = globalThis.TempoSchedule;
+
 const allowedActions = new Set([
   "TIME_IN",
   "SNACK",
-  "LUNCH",
+  SHIFT.meal.nowAction,
   "SNACK_SCHED",
-  "LUNCH_SCHED",
+  SHIFT.meal.scheduledAction,
   "LEARNING",
   "LEARNING_SCHED",
   "SNACKK",
-  "LUNCHH",
+  SHIFT.meal.rtoAction,
   "BACKK"
 ]);
-
-// Scheduled breaks use the same time zone as the flow (Singapore Standard Time).
-const SCHEDULE_TIME_ZONE = "Asia/Singapore";
-
-const scheduledActions = {
-  SNACK_SCHED: {
-    label: "Snack Break",
-    startMinutes: 10 * 60,
-    startText: "10:00 AM",
-    windowText: "10:00–10:30 AM"
-  },
-
-  LUNCH_SCHED: {
-    label: "Lunch",
-    startMinutes: 13 * 60,
-    startText: "1:00 PM",
-    windowText: "1:00–2:00 PM"
-  },
-
-  LEARNING_SCHED: {
-    label: "Learning Time",
-    startMinutes: 10 * 60,
-    startText: "10:00 AM",
-    windowText: "10:00 AM, with lunch 1:00–2:00 PM"
-  }
-};
 
 const MAX_BYEBYE_MESSAGES = 20;
 const MAX_BYEBYE_LENGTH = 200;
 
 let sending = false;
-
-function currentMinutesInScheduleZone() {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: SCHEDULE_TIME_ZONE,
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23"
-  }).formatToParts(new Date());
-
-  const read = type =>
-    Number(parts.find(part => part.type === type).value);
-
-  return read("hour") * 60 + read("minute");
-}
 
 function escapeHtml(text) {
   return text
@@ -154,18 +126,6 @@ async function sendAction(action) {
     };
   }
 
-  const schedule = scheduledActions[action];
-
-  if (
-    schedule &&
-    currentMinutesInScheduleZone() >= schedule.startMinutes
-  ) {
-    return {
-      type: "error",
-      message: `Too late to schedule ${schedule.label}. It must be sent before ${schedule.startText} (Singapore time). Switch to "Now" to start it immediately.`
-    };
-  }
-
   if (sending) {
     return {
       type: "error",
@@ -179,7 +139,11 @@ async function sendAction(action) {
 
   try {
     const data = await withTimeout(
-      chrome.storage.local.get(["flowUrl", "byebyeMessages"])
+      chrome.storage.local.get([
+        "flowUrl",
+        "byebyeMessages",
+        "scheduleTimes"
+      ])
     );
 
     let url;
@@ -200,9 +164,37 @@ async function sendAction(action) {
       };
     }
 
-    if (!result) {
-      const payload = { action };
+    const payload = { action };
+    let plan = null;
 
+    if (!result) {
+      const times = resolveTimes(data.scheduleTimes);
+      plan = scheduledPlan(action, times);
+
+      if (plan) {
+        const now = new Date();
+        const timesError = validateTimes(times);
+
+        if (timesError) {
+          result = {
+            type: "error",
+            message: `${timesError} Open ⚙ Settings to fix your break schedule.`
+          };
+        } else if (now >= todayAt(plan.start, now)) {
+          result = {
+            type: "error",
+            message: `Too late to schedule ${plan.label}. It must be sent before ${formatClock(plan.start)} (Philippine time). Switch to "Now" to start it immediately, or change the time in ⚙ Settings.`
+          };
+        } else {
+          // The flow waits until these UTC timestamps.
+          for (const [key, minutes] of Object.entries(plan.points)) {
+            payload[key] = toFlowTimestamp(todayAt(minutes, now));
+          }
+        }
+      }
+    }
+
+    if (!result) {
       if (action === "TIME_IN") {
         const byebyeMessage = pickByebyeMessage(data.byebyeMessages);
 
@@ -240,8 +232,8 @@ async function sendAction(action) {
       if (response.ok) {
         result = {
           type: "success",
-          message: schedule
-            ? `✓ ${schedule.label} scheduled for ${schedule.windowText} (Singapore time). Check Power Automate run history for completion.`
+          message: plan
+            ? `✓ ${plan.label} scheduled for ${plan.summary} (Philippine time). Check Power Automate run history for completion.`
             : "✓ Request accepted. Check Power Automate run history for completion."
         };
       } else {

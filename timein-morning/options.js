@@ -11,12 +11,34 @@ const addMessageButton = $("addMessage");
 const saveMessagesButton = $("saveMessages");
 const messagesStatusBox = $("messagesStatus");
 
+const scheduleForm = $("scheduleForm");
+const saveScheduleButton = $("saveSchedule");
+const resetScheduleButton = $("resetSchedule");
+const scheduleStatusBox = $("scheduleStatus");
+
+const SHIFT = globalThis.TEMPO_SHIFT;
+const {
+  DURATIONS,
+  formatClock,
+  formatRange,
+  parseTime,
+  resolveTimes,
+  validateTimes
+} = globalThis.TempoSchedule;
+
+const timeInputs = {
+  snack: $("snackTime"),
+  meal: $("mealTime"),
+  learning: $("learningTime")
+};
+
 const MAX_MESSAGES = 20;
 const MAX_MESSAGE_LENGTH = 200;
 
 let loading = false;
 let saving = false;
 let savingMessages = false;
+let savingSchedule = false;
 let themeChanged = false;
 
 function withTimeout(promise, milliseconds = 4000) {
@@ -96,6 +118,155 @@ function showMessagesStatus(message, type = "") {
   messagesStatusBox.textContent = message;
   messagesStatusBox.className = `status show ${type}`;
 }
+
+function showScheduleStatus(message, type = "") {
+  scheduleStatusBox.textContent = message;
+  scheduleStatusBox.className = `status show ${type}`;
+}
+
+/* BREAK SCHEDULE */
+
+function applyShiftLabels() {
+  document.title = `Tempo Settings · ${SHIFT.name}`;
+  $("shiftName").textContent = SHIFT.name;
+
+  for (const element of document.querySelectorAll(".meal-name")) {
+    element.textContent = SHIFT.meal.label;
+  }
+
+  for (const element of document.querySelectorAll(".meal-name-lower")) {
+    element.textContent = SHIFT.meal.label.toLowerCase();
+  }
+}
+
+function setScheduleControlsDisabled(disabled) {
+  for (const input of Object.values(timeInputs)) {
+    input.disabled = disabled;
+  }
+
+  saveScheduleButton.disabled = disabled;
+  resetScheduleButton.disabled = disabled;
+}
+
+function collectTimes() {
+  return Object.fromEntries(
+    Object.entries(timeInputs).map(([key, input]) => [key, input.value])
+  );
+}
+
+// Shows what each time means, e.g. "10:00–10:30 AM".
+function renderTimeNotes() {
+  const times = collectTimes();
+  const snack = parseTime(times.snack);
+  const meal = parseTime(times.meal);
+  const learning = parseTime(times.learning);
+  const defaults = SHIFT.defaultTimes;
+
+  const note = (minutes, text, fallback) =>
+    minutes === null ? `Default ${formatClock(parseTime(fallback))}` : text;
+
+  $("snackNote").textContent = note(
+    snack,
+    `Back at ${formatClock(snack + DURATIONS.snack)}`,
+    defaults.snack
+  );
+
+  $("mealNote").textContent = note(
+    meal,
+    `Back at ${formatClock(meal + DURATIONS.meal)}`,
+    defaults.meal
+  );
+
+  $("learningNote").textContent = note(
+    learning,
+    meal === null
+      ? `${SHIFT.meal.label} time not set`
+      : `${SHIFT.meal.label} ${formatRange(meal, meal + DURATIONS.meal)}`,
+    defaults.learning
+  );
+}
+
+function renderTimes(times) {
+  for (const [key, input] of Object.entries(timeInputs)) {
+    input.value = times[key];
+  }
+
+  renderTimeNotes();
+}
+
+for (const input of Object.values(timeInputs)) {
+  input.addEventListener("input", () => {
+    renderTimeNotes();
+    showScheduleStatus("Unsaved changes.");
+  });
+}
+
+resetScheduleButton.addEventListener("click", () => {
+  renderTimes(SHIFT.defaultTimes);
+  showScheduleStatus(
+    "Defaults restored. Click Save schedule to keep them."
+  );
+});
+
+scheduleForm.addEventListener("submit", async event => {
+  event.preventDefault();
+
+  if (
+    loading ||
+    saving ||
+    savingMessages ||
+    savingSchedule ||
+    saveScheduleButton.disabled
+  ) {
+    return;
+  }
+
+  const times = collectTimes();
+  const error = validateTimes(times);
+
+  if (error) {
+    showScheduleStatus(error, "error");
+    return;
+  }
+
+  savingSchedule = true;
+
+  setScheduleControlsDisabled(true);
+  reloadButton.disabled = true;
+
+  showScheduleStatus("Saving…");
+
+  try {
+    await withTimeout(
+      chrome.storage.local.set({
+        scheduleTimes: times
+      })
+    );
+
+    // Read the value back to verify the save.
+    const saved = await withTimeout(
+      chrome.storage.local.get("scheduleTimes")
+    );
+
+    if (
+      JSON.stringify(saved.scheduleTimes) !== JSON.stringify(times)
+    ) {
+      throw new Error("Save verification failed.");
+    }
+
+    showScheduleStatus("✓ Break schedule saved.", "success");
+  } catch {
+    showScheduleStatus(
+      "✕ Could not confirm the save. Click Reload saved settings to check the stored times, then try again.",
+      "error"
+    );
+  } finally {
+    savingSchedule = false;
+
+    setScheduleControlsDisabled(false);
+    reloadButton.disabled = false;
+  }
+});
 
 /* BYEBYE MESSAGES */
 
@@ -194,7 +365,7 @@ function setControlsDisabled(disabled) {
 /* LOAD SETTINGS */
 
 async function loadSettings() {
-  if (loading || saving || savingMessages) {
+  if (loading || saving || savingMessages || savingSchedule) {
     return;
   }
 
@@ -202,6 +373,7 @@ async function loadSettings() {
 
   setControlsDisabled(true);
   setMessageControlsDisabled(true);
+  setScheduleControlsDisabled(true);
   reloadButton.disabled = true;
   hideUrl();
 
@@ -212,7 +384,8 @@ async function loadSettings() {
       chrome.storage.local.get([
         "flowUrl",
         "tempoTheme",
-        "byebyeMessages"
+        "byebyeMessages",
+        "scheduleTimes"
       ])
     );
 
@@ -221,12 +394,16 @@ async function loadSettings() {
     renderMessages(data.byebyeMessages);
     messagesStatusBox.className = "status";
 
+    renderTimes(resolveTimes(data.scheduleTimes));
+    scheduleStatusBox.className = "status";
+
     if (!themeChanged) {
       applyTheme(data.tempoTheme || "light");
     }
 
     setControlsDisabled(false);
     setMessageControlsDisabled(false);
+    setScheduleControlsDisabled(false);
 
     showStatus(
       data.flowUrl
@@ -265,7 +442,13 @@ urlInput.addEventListener("input", () => {
 $("settingsForm").addEventListener("submit", async event => {
   event.preventDefault();
 
-  if (loading || saving || savingMessages || saveButton.disabled) {
+  if (
+    loading ||
+    saving ||
+    savingMessages ||
+    savingSchedule ||
+    saveButton.disabled
+  ) {
     return;
   }
 
@@ -347,6 +530,7 @@ $("messagesForm").addEventListener("submit", async event => {
     loading ||
     saving ||
     savingMessages ||
+    savingSchedule ||
     saveMessagesButton.disabled
   ) {
     return;
@@ -443,4 +627,5 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
+applyShiftLabels();
 loadSettings();

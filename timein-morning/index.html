@@ -84,6 +84,24 @@
       letter-spacing: -0.4px;
     }
 
+    .shift-badge {
+      display: inline-block;
+      margin-left: 5px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: #eff6ff;
+      color: #2563eb;
+      font-size: 9px;
+      font-weight: 650;
+      letter-spacing: 0;
+      vertical-align: middle;
+    }
+
+    body.dark .shift-badge {
+      background: #172554;
+      color: #93c5fd;
+    }
+
     .brand-subtitle {
       margin-top: 2px;
       color: var(--muted);
@@ -395,7 +413,7 @@
         >
 
         <div>
-          <div class="brand-name">Tempo</div>
+          <div class="brand-name">Tempo<span id="shiftBadge" class="shift-badge"></span></div>
           <div class="brand-subtitle">
             Time Entry &amp; Management Platform for Office
           </div>
@@ -425,10 +443,10 @@
       <div class="greeting-title">Choose an action below</div>
 
       <div
+        id="modeToggle"
         class="mode-toggle"
         role="group"
-        aria-label="Snack Break, Lunch and Learning Time timing"
-        title="Applies to Snack Break, Lunch and Learning Time"
+        aria-label="Scheduled break timing"
       >
         <button
           id="modeNow"
@@ -465,11 +483,11 @@
         <span class="action-arrow">→</span>
       </button>
 
-      <button id="lunchButton" class="action" type="button">
-        <span class="action-icon break-icon">🍱</span>
+      <button id="mealButton" class="action" type="button">
+        <span id="mealIcon" class="action-icon break-icon">🍱</span>
         <span class="action-content">
-          <span class="action-title">Lunch</span>
-          <span id="lunchDescription" class="action-description">1 hour break</span>
+          <span id="mealTitle" class="action-title">Lunch</span>
+          <span id="mealDescription" class="action-description">1 hour break</span>
         </span>
         <span class="action-arrow">→</span>
       </button>
@@ -491,9 +509,9 @@
         <span class="quick-description">No auto back</span>
       </button>
 
-      <button id="lunch2Button" class="quick-action" type="button">
-        <span class="quick-icon">🍱</span>
-        <span class="quick-title">Lunch (RTO)</span>
+      <button id="meal2Button" class="quick-action" type="button">
+        <span id="meal2Icon" class="quick-icon">🍱</span>
+        <span id="meal2Title" class="quick-title">Lunch (RTO)</span>
         <span class="quick-description">No auto back</span>
       </button>
 
@@ -532,6 +550,8 @@
     </div>
   </dialog>
 
+  <script src="shift.js"></script>
+  <script src="schedule.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
