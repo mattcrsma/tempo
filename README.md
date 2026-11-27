@@ -4,6 +4,13 @@ A lightweight Chrome extension for triggering work time-entry actions through Mi
 
 Tempo sends your selected action to your own Power Automate HTTP endpoint. Each user connects their own flow through a Settings tab—no code changes required.
 
+This repository holds one extension per shift:
+
+| Folder | Shift |
+| --- | --- |
+| `timein-morning/` | Morning shift (6:00 AM time in, scheduled snack and lunch) |
+| `timein-mid/` | Mid shift (planned) |
+
 ## Features
 
 - ▶ Time In
@@ -49,10 +56,12 @@ A Microsoft 365 subscription alone may not cover the premium HTTP request trigge
 
 4. Enable **Developer mode**.
 5. Click **Load unpacked**.
-6. Select the extracted folder containing `manifest.json`.
+6. Select the `timein-morning` folder inside the extracted folder (the one containing `manifest.json`).
 7. Open Chrome’s Extensions menu and pin **Tempo**.
 
 Keep the extension folder in its installed location.
+
+**Upgrading from an older version?** The extension folder was renamed from `msteams-extension` to `timein-morning`. Remove the old Tempo in `chrome://extensions`, load `timein-morning` with **Load unpacked**, then enter your HTTP URL and byebye messages again in Settings.
 
 ## 2. Create your Power Automate flow
 
@@ -590,7 +599,8 @@ If delivery cannot be confirmed, inspect run history before retrying. The flow m
 | “Too late to schedule…” | Scheduled Snack Break and Learning Time must be sent before 10:00 AM, and Lunch before 1:00 PM (Singapore time). Switch to **Now** to start immediately. |
 | Scheduled mode runs Time In | A `SNACK_SCHED`, `LUNCH_SCHED`, `LEARNING` or `LEARNING_SCHED` case is missing from the Switch, so the request fell into Default. Add the cases. |
 | Byebye always says “byebye” | Check that messages are saved in Settings, that the **ByeMsg** Compose exists, and that the final Teams message uses its **Outputs**. |
-| Missing icon | Confirm the file is `images/icon.png` and all image references use that path. |
+| Missing icon | Confirm `images/` contains `icon.png`, `icon16.png`, `icon32.png`, `icon48.png` and `icon128.png`. |
+| Old icon or old buttons still show | Chrome may be loading a different copy of the extension. In `chrome://extensions`, click **Details** on Tempo and check that **Source** points to your `timein-morning` folder. |
 | Error mentions `url-validation.js` | You have mixed old and new files. The current version does not use that file or `importScripts()`. Replace the outdated code and reload. |
 | Old errors still appear | Clear existing errors, reload Tempo, and check whether a new error appears. |
 | Licensing error | Check that your license covers the HTTP trigger and the connectors used by your flow. |
@@ -621,16 +631,31 @@ If a signed URL is exposed, revoke or regenerate it through Power Automate and u
 
 ## Project files
 
+```text
+tempo/
+├── README.md
+└── timein-morning/      Morning-shift Chrome extension (load this folder)
+    ├── manifest.json
+    ├── index.html
+    ├── script.js
+    ├── background.js
+    ├── options.html
+    ├── options.js
+    └── images/
+```
+
+Files inside `timein-morning/`:
+
 | File | Purpose |
 | --- | --- |
-| `manifest.json` | Extension configuration, permissions, icon, and Settings page |
+| `manifest.json` | Extension configuration, permissions, icons, and Settings page |
 | `index.html` | Popup layout and styles |
 | `script.js` | Popup buttons, Now/Scheduled toggle, confirmations, theme, and Settings navigation |
 | `background.js` | Sends requests to the locally saved endpoint, checks scheduled start times, and picks the byebye message |
 | `options.html` | Full Settings tab layout and styles |
 | `options.js` | URL validation, byebye message list, local saving, and save confirmation |
-| `images/icon.png` | Tempo icon |
-| `README.md` | Installation and Power Automate setup instructions |
+| `images/icon.png` | Tempo icon (blue stopwatch) used in the popup and Settings page |
+| `images/icon16.png` … `icon128.png` | Toolbar and Extensions page icons at each size |
 
 No build command or npm installation is required.
 
